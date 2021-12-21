@@ -9,6 +9,7 @@ import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -133,7 +134,10 @@ public class CompressImage {
         }
 
         FileOutputStream out = null;
-        String filename = getFilename();
+        String filename;
+
+        filename = getFilename2();
+
         try {
             out = new FileOutputStream(filename);
 
@@ -166,6 +170,16 @@ public class CompressImage {
         return uriString;
     }
 
+
+    public String getFilename2() {
+        File file = new File(Environment.getExternalStorageDirectory().getPath(), "MyFolder/Images");
+        if (!file.exists()) {
+            file.mkdirs();
+        }
+        String uriSting = (file.getAbsolutePath() + "/" + System.currentTimeMillis() + ".jpg");
+        return uriSting;
+
+    }
 
     private String getRealPathFromURI(String contentURI) {
         Uri contentUri = Uri.parse(contentURI);

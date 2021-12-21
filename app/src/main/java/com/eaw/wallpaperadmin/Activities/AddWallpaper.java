@@ -1,5 +1,6 @@
 package com.eaw.wallpaperadmin.Activities;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -87,11 +88,11 @@ public class AddWallpaper extends AppCompatActivity {
         featured.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
-                if(compoundButton.isPressed()){
-                    if(b){
-                        isFeatured=true;
-                    }else{
-                        isFeatured=false;
+                if (compoundButton.isPressed()) {
+                    if (b) {
+                        isFeatured = true;
+                    } else {
+                        isFeatured = false;
                     }
                 }
             }
@@ -111,58 +112,69 @@ public class AddWallpaper extends AppCompatActivity {
     }
 
     private void uploadImg() {
-        progress.setVisibility(View.VISIBLE);
-        String imgName = Long.toHexString(Double.doubleToLongBits(Math.random()));
+        try {
+            progress.setVisibility(View.VISIBLE);
+            String imgName = Long.toHexString(Double.doubleToLongBits(Math.random()));
 
-        Uri file = Uri.fromFile(new File(imageUrl));
+            Uri file = Uri.fromFile(new File(imageUrl));
 
-        StorageReference mStorageRef = FirebaseStorage.getInstance().getReference();
+            StorageReference mStorageRef = FirebaseStorage.getInstance().getReference();
 
-        final StorageReference riversRef = mStorageRef.child("Photos").child(imgName);
+            final StorageReference riversRef = mStorageRef.child("Photos").child(imgName);
 
-        riversRef.putFile(file)
-                .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-                    @Override
-                    @SuppressWarnings("VisibleForTests")
-                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                        // Get a URL to the uploaded content
+            riversRef.putFile(file)
+                    .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                        @Override
+                        @SuppressWarnings("VisibleForTests")
+                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                            // Get a URL to the uploaded content
 
-                        String downloadUrl = taskSnapshot.getMetadata().getReference().getDownloadUrl().toString();
-                        riversRef.getDownloadUrl().addOnCompleteListener(new OnCompleteListener<Uri>() {
-                            @Override
-                            public void onComplete(@NonNull Task<Uri> task) {
-                                String profileImageUrl = task.getResult().toString();
-                                Log.i("URL", profileImageUrl);
-                                String key = mDatabase.push().getKey();
-                                WallpaperModel model = new WallpaperModel(key,
-                                        title.getText().toString(), profileImageUrl, category, System.currentTimeMillis(),isFeatured);
-                                mDatabase.child("Wallpapers").child(key).setValue(model).addOnCompleteListener(new OnCompleteListener<Void>() {
-                                    @Override
-                                    public void onComplete(@NonNull @NotNull Task<Void> task) {
-                                        CommonUtils.showToast("Uploaded");
-                                        progress.setVisibility(View.INVISIBLE);
-                                        finish();
-                                    }
-                                });
+                            String downloadUrl = taskSnapshot.getMetadata().getReference().getDownloadUrl().toString();
+                            riversRef.getDownloadUrl().addOnCompleteListener(new OnCompleteListener<Uri>() {
+                                @Override
+                                public void onComplete(@NonNull Task<Uri> task) {
+                                    String profileImageUrl = task.getResult().toString();
+                                    Log.i("URL", profileImageUrl);
+                                    String key = mDatabase.push().getKey();
+                                    WallpaperModel model = new WallpaperModel(key,
+                                            title.getText().toString(), profileImageUrl, category, System.currentTimeMillis(), isFeatured);
+                                    mDatabase.child("Wallpapers").child(key).setValue(model).addOnCompleteListener(new OnCompleteListener<Void>() {
+                                        @Override
+                                        public void onComplete(@NonNull @NotNull Task<Void> task) {
+                                            CommonUtils.showToast("Uploaded");
+                                            progress.setVisibility(View.INVISIBLE);
+                                            finish();
+                                        }
+                                    }).addOnFailureListener(new OnFailureListener() {
+                                        @Override
+                                        public void onFailure(@NonNull @NotNull Exception e) {
+                                            mDatabase.child("Errors").child("dbError").child(mDatabase.push().getKey()).setValue(e.getMessage());
+
+                                        }
+                                    });
 
 
-                            }
-                        });
+                                }
+                            });
 
 
-                    }
-                })
-                .
+                        }
+                    })
+                    .addOnFailureListener(new OnFailureListener() {
+                        @Override
+                        public void onFailure(@NonNull Exception exception) {
+                            // Handle unsuccessful uploads
+                            // ...
+                            mDatabase.child("Errors").child("picUploadError").child(mDatabase.push().getKey()).setValue(exception.getMessage());
 
-                        addOnFailureListener(new OnFailureListener() {
-                            @Override
-                            public void onFailure(@NonNull Exception exception) {
-                                // Handle unsuccessful uploads
-                                // ...
-                                CommonUtils.showToast("There was some error uploading pic");
+                            CommonUtils.showToast("There was some error uploading pic");
 
-                            }
-                        });
+
+                        }
+                    });
+        } catch (Exception e) {
+            mDatabase.child("Errors").child("mainError").child(mDatabase.push().getKey()).setValue(e.getMessage());
+        }
 
 
     }
@@ -173,9 +185,13 @@ public class AddWallpaper extends AppCompatActivity {
         if (requestCode == REQUEST_CODE_CHOOSE && data != null) {
             mSelected = data.getStringArrayListExtra(Pix.IMAGE_RESULTS);
 
+//            try {
             CompressImage image = new CompressImage(AddWallpaper.this);
             imageUrl = image.compressImage("" + mSelected.get(0));
             Glide.with(AddWallpaper.this).load(mSelected.get(0)).into(pickImage);
+//            }catch (Exception e){
+//                mDatabase.child("Errors").child("imgError").child(mDatabase.push().getKey()).setValue(e.getMessage());
+//            }
         }
     }
 
@@ -211,6 +227,7 @@ public class AddWallpaper extends AppCompatActivity {
         int PERMISSION_ALL = 1;
         String[] PERMISSIONS = {
                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE,
         };
 
         if (!hasPermissions(this, PERMISSIONS)) {
